@@ -4,7 +4,7 @@ An isolated development environment based on Docker, designed to allow an AI to 
 
 ## 🏗️ Architecture and Workflow
 
-The project uses a customized Ubuntu 24.04 image and a coordinator script (`ai-agent-container-run.sh`) that manages three operating modes:
+The project uses a customized Ubuntu 24.04 image and a coordinator script (`scripts/ai-agent-container-run.sh`) that manages three operating modes:
 
 - **Current folder**: mounts `$(pwd)` as `/app`
 - **Specific folder**: mounts an existing path as `/app`
@@ -28,19 +28,19 @@ The project uses a customized Ubuntu 24.04 image and a coordinator script (`ai-a
 docker compose build
 
 # Reset persistent volume after rebuild
-AGENT_MODE=persistent ./ai-agent-container-run.sh --reset
+AGENT_MODE=persistent aic --reset
 
 # Start in current folder (ephemeral)
-./ai-agent-container-run.sh
+aic
 
 # Start on a specific path (persistent, named session)
-AGENT_MODE=persistent ./ai-agent-container-run.sh --name myproject ~/projects/myapp
+AGENT_MODE=persistent aic --name myproject ~/projects/myapp
 
 # Start on a git worktree (creates branch ai/<name>)
-./ai-agent-container-run.sh feature-name
+aic feature-name
 
 # Clean up a worktree when done
-./ai-agent-container-run.sh --cleanup=feature-name
+aic --cleanup=feature-name
 ```
 
 ## 🛠️ Tool Stack (inside the container)

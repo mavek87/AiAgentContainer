@@ -10,10 +10,10 @@
 # --- HELPER FUNCTIONS ---
 
 # Returns the absolute path to the directory containing this script.
-# Uses BASH_SOURCE[0] so it works correctly even when the script is sourced or
-# called via a symlink from a different working directory.
+# Uses readlink -f to resolve symlinks, so it works correctly even when
+# called via a symlink (e.g. the 'aic' command in ~/.local/bin).
 get_script_dir() {
-    echo "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    echo "$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)"
 }
 
 # Validates that a name contains only safe characters for Docker container names
@@ -51,7 +51,10 @@ EOF
 # --- INITIALIZATION ---
 
 SCRIPT_DIR=$(get_script_dir)
-COMPOSE_FILE="$SCRIPT_DIR/docker-compose.yml"
+# PROJECT_DIR is the root of the AIC repository (one level above scripts/).
+# docker-compose.yml and worktrees/ live there, not inside scripts/.
+PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
+COMPOSE_FILE="$PROJECT_DIR/docker-compose.yml"
 
 # MY_UID/MY_GID are read by docker-compose to run the container as the host user,
 # ensuring that files written to /app are owned by the correct user on the host.
@@ -146,11 +149,11 @@ fi
 
 # --cleanup=<name>: removes the git worktree directory and its tracking branch.
 if [ -n "$CLEANUP" ]; then
-    WORKTREE_DIR="$SCRIPT_DIR/worktrees/$CLEANUP"
+    WORKTREE_DIR="$PROJECT_DIR/worktrees/$CLEANUP"
     if [ -d "$WORKTREE_DIR" ]; then
         echo "🧹 Removing worktree: $CLEANUP"
-        git -C "$SCRIPT_DIR" worktree remove "$WORKTREE_DIR" && \
-            git -C "$SCRIPT_DIR" branch -d "ai/$CLEANUP" && \
+        git -C "$PROJECT_DIR" worktree remove "$WORKTREE_DIR" && \
+            git -C "$PROJECT_DIR" branch -d "ai/$CLEANUP" && \
             echo "✅ Done"
     else
         echo "⚠️  Worktree not found: $WORKTREE_DIR"
@@ -198,18 +201,21 @@ fi
 
 # --- CONTAINER LAUNCH ---
 
+# For ephemeral sessions, generate a short random ID used as both the container
+# name and the hostname, so 'docker ps' and the shell prompt are readable.
+if [ -z "${SESSION_NAME}" ]; then
+    export SESSION_NAME="$(cat /proc/sys/kernel/random/uuid | cut -d- -f1)"
+fi
+
+CONTAINER_NAME="ai-agent-container-${SESSION_NAME}"
+
 # Named sessions: if a container with this name is already running, open a new
 # shell inside it instead of starting a second instance.
-# Unnamed sessions: start a fresh container that is automatically removed on exit.
-if [ -n "${SESSION_NAME}" ]; then
-    CONTAINER_NAME="ai-agent-container-${SESSION_NAME}"
-    if docker inspect --format '{{.State.Running}}' "$CONTAINER_NAME" 2>/dev/null | grep -q true; then
-        echo "🔗 Session '$SESSION_NAME' is already running — opening new shell..."
-        docker exec -it "$CONTAINER_NAME" /bin/bash
-    else
-        echo "🏷️  Session: $SESSION_NAME"
-        docker compose -f "$COMPOSE_FILE" run --rm --name "$CONTAINER_NAME" "$SERVICE"
-    fi
+# Ephemeral sessions: the container is removed automatically on exit (--rm).
+if docker inspect --format '{{.State.Running}}' "$CONTAINER_NAME" 2>/dev/null | grep -q true; then
+    echo "🔗 Session '$SESSION_NAME' is already running — opening new shell..."
+    docker exec -it "$CONTAINER_NAME" /bin/bash
 else
-    docker compose -f "$COMPOSE_FILE" run --rm "$SERVICE"
+    echo "🏷️  Session: $SESSION_NAME"
+    docker compose -f "$COMPOSE_FILE" run --rm --name "$CONTAINER_NAME" "$SERVICE"
 fi

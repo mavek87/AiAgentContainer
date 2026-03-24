@@ -1,20 +1,20 @@
 x-agent-base: &agent-base
   build: .
   image: ai-agent-container
-  # Fondamentale: usiamo il tuo UID così i file creati nel progetto sono tuoi
+  # Essential: use your UID so files created in the project belong to you
   user: "${MY_UID:-1000}:${MY_GID:-1000}"
-  hostname: ${SESSION_NAME:-ai-agent-container}
+  hostname: ai-agent-container-${SESSION_NAME}
   environment:
     - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
     - HOME=/home/ubuntu
     - SESSION_NAME=${SESSION_NAME:-}
-    # SSH agent forwarding: condivide le chiavi SSH dell'host col container
+    # SSH agent forwarding: shares host SSH keys with the container
     - SSH_AUTH_SOCK=/ssh-agent
   stdin_open: true
   tty: true
 
 services:
-  # Modalità persistente: la home dell'agente sopravvive tra le sessioni
+  # Persistent mode: the agent's home survives between sessions
   agent:
     <<: *agent-base
     volumes:
@@ -24,7 +24,7 @@ services:
       - ./config/agent-rules.md:/home/ubuntu/.config/opencode/AGENTS.md:ro
       - ${SSH_AUTH_SOCK:-/dev/null}:/ssh-agent:ro
 
-  # Modalità effimera: la home viene distrutta alla chiusura del container
+  # Ephemeral mode: the home is destroyed when the container is closed
   agent-ephemeral:
     <<: *agent-base
     volumes:

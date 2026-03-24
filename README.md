@@ -2,11 +2,20 @@
 
 Isolated Docker container for AI development sessions. The agent works inside `/app` (your project folder) without touching the rest of the host system.
 
-## Prerequisites
+## Installation
 
 ```bash
-# Build the image (one-time, or after Dockerfile changes)
-docker compose build
+cd /path/to/AiAgentContainer
+./scripts/install.sh   # creates the 'aic' symlink in ~/.local/bin
+docker compose build   # build the image (one-time, or after Dockerfile changes)
+```
+
+After installation, use `aic` from any directory instead of the full script path.
+
+To uninstall:
+
+```bash
+./scripts/uninstall.sh   # removes the 'aic' symlink (image and volumes are untouched)
 ```
 
 ---
@@ -15,13 +24,13 @@ docker compose build
 
 ```bash
 # Current directory
-/path/to/ai-agent-container-run.sh
+aic
 
 # Specific directory
-/path/to/ai-agent-container-run.sh ~/projects/my-app
+aic ~/projects/my-app
 
 # Git worktree — creates branch ai/new-feature in ./worktrees/new-feature
-/path/to/ai-agent-container-run.sh new-feature
+aic new-feature
 ```
 
 Close the session with `exit`. The container is removed automatically.
@@ -45,13 +54,13 @@ Close the session with `exit`. The container is removed automatically.
 **Ephemeral (default)** — the agent's home directory is destroyed on exit. Every session starts from scratch.
 
 ```bash
-/path/to/ai-agent-container-run.sh ~/projects/my-app
+aic ~/projects/my-app
 ```
 
 **Persistent** — the home directory survives between sessions. Claude remembers project context and conversation history.
 
 ```bash
-AGENT_MODE=persistent /path/to/ai-agent-container-run.sh ~/projects/my-app
+AGENT_MODE=persistent aic ~/projects/my-app
 ```
 
 ---
@@ -72,10 +81,10 @@ AGENT_MODE=persistent /path/to/ai-agent-container-run.sh ~/projects/my-app
 
 ```bash
 # Terminal 1 — start
-AGENT_MODE=persistent /path/to/ai-agent-container-run.sh --name backend ~/projects/backend
+AGENT_MODE=persistent aic --name backend ~/projects/backend
 
 # Terminal 2 — auto re-attach
-AGENT_MODE=persistent /path/to/ai-agent-container-run.sh --name backend ~/projects/backend
+AGENT_MODE=persistent aic --name backend ~/projects/backend
 # → 🔗 Session 'backend' is already running — opening new shell...
 ```
 
@@ -86,34 +95,34 @@ AGENT_MODE=persistent /path/to/ai-agent-container-run.sh --name backend ~/projec
 **One-shot task (ephemeral):**
 ```bash
 cd ~/projects/backend
-/path/to/ai-agent-container-run.sh
+aic
 # inside the container: claude "add validation to the /users endpoint"
 ```
 
 **Isolated feature on a worktree:**
 ```bash
 cd ~/projects/backend
-/path/to/ai-agent-container-run.sh refactor-auth
+aic refactor-auth
 # the AI works on worktrees/refactor-auth, main is untouched
-# when done: /path/to/ai-agent-container-run.sh --cleanup=refactor-auth
+# when done: aic --cleanup=refactor-auth
 ```
 
 **Multi-day session with memory:**
 ```bash
-AGENT_MODE=persistent /path/to/ai-agent-container-run.sh --name payments ~/projects/my-app
+AGENT_MODE=persistent aic --name payments ~/projects/my-app
 # exit — resume the next day with the same command
 ```
 
 **Parallel sessions:**
 ```bash
-AGENT_MODE=persistent /path/to/ai-agent-container-run.sh --name backend  ~/projects/backend   # terminal 1
-AGENT_MODE=persistent /path/to/ai-agent-container-run.sh --name frontend ~/projects/frontend  # terminal 2
+AGENT_MODE=persistent aic --name backend  ~/projects/backend   # terminal 1
+AGENT_MODE=persistent aic --name frontend ~/projects/frontend  # terminal 2
 ```
 
 **Reset volume after rebuild:**
 ```bash
 docker compose build
-AGENT_MODE=persistent /path/to/ai-agent-container-run.sh --reset
+AGENT_MODE=persistent aic --reset
 ```
 
 ---
@@ -142,7 +151,7 @@ When you are done with a worktree feature, remove it with `--cleanup`:
 
 ```bash
 # Removes worktrees/refactor-auth and branch ai/refactor-auth
-/path/to/ai-agent-container-run.sh --cleanup=refactor-auth
+aic --cleanup=refactor-auth
 ```
 
 Or manually:
