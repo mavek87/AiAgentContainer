@@ -1,0 +1,33 @@
+x-agent-base: &agent-base
+  build: .
+  image: ai-container
+  # Fondamentale: usiamo il tuo UID così i file creati nel progetto sono tuoi
+  user: "${MY_UID:-1000}:${MY_GID:-1000}"
+  hostname: ${SESSION_NAME:-ai-agent}
+  environment:
+    - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+    - HOME=/home/ai-agent
+    - SESSION_NAME=${SESSION_NAME:-}
+  stdin_open: true
+  tty: true
+
+services:
+  # Modalità persistente: la home dell'agente sopravvive tra le sessioni
+  agent:
+    <<: *agent-base
+    volumes:
+      - ${TARGET_PATH:-.}:/app
+      - ai_home_volume:/home/ai-agent
+      - ./config/agent-rules.md:/home/ai-agent/.claude/CLAUDE.md:ro
+      - ./config/agent-rules.md:/home/ai-agent/.config/opencode/AGENTS.md:ro
+
+  # Modalità effimera: la home viene distrutta alla chiusura del container
+  agent-ephemeral:
+    <<: *agent-base
+    volumes:
+      - ${TARGET_PATH:-.}:/app
+      - ./config/agent-rules.md:/home/ai-agent/.claude/CLAUDE.md:ro
+      - ./config/agent-rules.md:/home/ai-agent/.config/opencode/AGENTS.md:ro
+
+volumes:
+  ai_home_volume:
