@@ -24,6 +24,28 @@ validate_name() {
     fi
 }
 
+show_help() {
+    cat << EOF
+Usage: $(basename "$0") [OPTIONS] [TARGET]
+
+Options:
+  -h, --help           Show this help message.
+  -n, --name <name>    Assign a name to the session (re-attaches if already running).
+  --reset              Remove the persistent volume (requires AGENT_MODE=persistent).
+  --cleanup=<name>     Remove the specified git worktree and its branch.
+
+Target (optional):
+  (empty) or .         Use the current directory (default).
+  <path>               Use an existing directory.
+  <feature_name>       Create or reuse a Git worktree for the specified feature.
+
+Environment variables:
+  ANTHROPIC_API_KEY    API key for Claude authentication.
+  AGENT_MODE           Set to 'persistent' to keep the home directory between sessions.
+EOF
+    exit 0
+}
+
 # ------------------------
 
 # Claude Authentication
@@ -37,18 +59,38 @@ fi
 INPUT=""
 RESET=false
 CLEANUP=""
-for arg in "$@"; do
-    if [ "$arg" == "--reset" ]; then
-        RESET=true
-    elif [[ "$arg" == --cleanup=* ]]; then
-        CLEANUP="${arg#--cleanup=}"
-    else
-        INPUT="$arg"
-    fi
+SESSION_NAME=""
+
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        -h|--help)
+            show_help
+            ;;
+        -n|--name)
+            SESSION_NAME="$2"
+            shift 2
+            ;;
+        --reset)
+            RESET=true
+            shift
+            ;;
+        --cleanup=*)
+            CLEANUP="${1#--cleanup=}"
+            shift
+            ;;
+        -*)
+            echo "❌ Error: unrecognized option '$1'. Use --help to see available options."
+            exit 1
+            ;;
+        *)
+            INPUT="$1"
+            shift
+            ;;
+    esac
 done
 
-# Validate SESSION_NAME
-validate_name "${SESSION_NAME}" "SESSION_NAME"
+export SESSION_NAME
+validate_name "$SESSION_NAME" "session name"
 
 # Mode selection
 if [ "${AGENT_MODE}" == "persistent" ]; then
@@ -129,7 +171,7 @@ fi
 
 # Container Launch Logic
 if [ -n "${SESSION_NAME}" ]; then
-    CONTAINER_NAME="aic-${SESSION_NAME}"
+    CONTAINER_NAME="ai-agent-container-${SESSION_NAME}"
     if docker inspect --format '{{.State.Running}}' "$CONTAINER_NAME" 2>/dev/null | grep -q true; then
         echo "🔗 Session '$SESSION_NAME' is already running — opening new shell..."
         docker exec -it "$CONTAINER_NAME" /bin/bash

@@ -24,16 +24,11 @@ RUN echo "ubuntu ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/nopasswd && \
 USER ubuntu
 WORKDIR /home/ubuntu
 
-# 4. Install development tools via their official scripts (all versions pinned via ARG):
-ARG CLAUDE_VERSION=2.1.81
-ARG OPENCODE_VERSION=1.3.0
-ARG UV_VERSION=0.11.0
-ARG BUN_VERSION=1.3.11
-
-RUN curl -fsSL https://claude.ai/install.sh | bash -s -- "${CLAUDE_VERSION}" && \
-    curl -fsSL https://opencode.ai/install | bash -s -- --version "${OPENCODE_VERSION}" && \
-    curl -LsSf "https://astral.sh/uv/${UV_VERSION}/install.sh" | sh && \
-    curl -fsSL https://bun.sh/install | BUN_VERSION="${BUN_VERSION}" bash && \
+# 4. Install development tools via their official scripts (always latest):
+RUN curl -fsSL https://claude.ai/install.sh | bash && \
+    curl -fsSL https://opencode.ai/install | bash && \
+    curl -LsSf https://astral.sh/uv/install.sh | sh && \
+    curl -fsSL https://bun.sh/install | bash && \
     mkdir -p /home/ubuntu/.claude /home/ubuntu/.config/opencode
 
 # 5. Environment variables (PATH and JAVA_HOME)

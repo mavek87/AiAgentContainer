@@ -28,12 +28,12 @@ Chiudi la sessione con `exit`. Il container viene rimosso automaticamente.
 
 ---
 
-## Variabili d'ambiente
+## Opzioni e variabili d'ambiente
 
-| Variabile | Valori | Default | Descrizione |
+| Parametro / Variabile | Valori | Default | Descrizione |
 |-----------|--------|---------|-------------|
+| `-n`, `--name <nome>` | qualsiasi stringa | — | Nome della sessione (ri-aggancio automatico se già attiva) |
 | `AGENT_MODE` | `ephemeral` \| `persistent` | `ephemeral` | Modalità sessione |
-| `SESSION_NAME` | qualsiasi stringa | — | Nome del container |
 | `ANTHROPIC_API_KEY` | `sk-ant-...` | — | API key Console (opzionale) |
 
 ---
@@ -66,15 +66,15 @@ AGENT_MODE=persistent /path/to/ai-agent-container-run.sh ~/progetti/mia-app
 
 ## Sessioni con nome
 
-`SESSION_NAME` assegna un nome al container. Se una sessione con quel nome è già in esecuzione, lo script si ri-aggancia automaticamente.
+`--name` assegna un nome al container. Se una sessione con quel nome è già in esecuzione, lo script apre una nuova shell nella sessione esistente.
 
 ```bash
 # Terminale 1 — avvia
-SESSION_NAME=backend AGENT_MODE=persistent /path/to/ai-agent-container-run.sh ~/progetti/backend
+AGENT_MODE=persistent /path/to/ai-agent-container-run.sh --name backend ~/progetti/backend
 
 # Terminale 2 — ri-aggancio automatico
-SESSION_NAME=backend AGENT_MODE=persistent /path/to/ai-agent-container-run.sh ~/progetti/backend
-# → 🔗 Session 'backend' is already running — attaching...
+AGENT_MODE=persistent /path/to/ai-agent-container-run.sh --name backend ~/progetti/backend
+# → 🔗 Session 'backend' is already running — opening new shell...
 ```
 
 ---
@@ -98,14 +98,14 @@ cd ~/progetti/backend
 
 **Sessione multi-giorno con memoria:**
 ```bash
-SESSION_NAME=pagamenti AGENT_MODE=persistent /path/to/ai-agent-container-run.sh ~/progetti/mia-app
+AGENT_MODE=persistent /path/to/ai-agent-container-run.sh --name pagamenti ~/progetti/mia-app
 # exit — riprendi il giorno dopo con lo stesso comando
 ```
 
 **Più sessioni parallele:**
 ```bash
-SESSION_NAME=backend  AGENT_MODE=persistent /path/to/ai-agent-container-run.sh ~/progetti/backend   # terminale 1
-SESSION_NAME=frontend AGENT_MODE=persistent /path/to/ai-agent-container-run.sh ~/progetti/frontend  # terminale 2
+AGENT_MODE=persistent /path/to/ai-agent-container-run.sh --name backend  ~/progetti/backend   # terminale 1
+AGENT_MODE=persistent /path/to/ai-agent-container-run.sh --name frontend ~/progetti/frontend  # terminale 2
 ```
 
 **Reset volume dopo rebuild:**

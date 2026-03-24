@@ -1,9 +1,9 @@
 x-agent-base: &agent-base
   build: .
-  image: ai-container
+  image: ai-agent-container
   # Fondamentale: usiamo il tuo UID così i file creati nel progetto sono tuoi
   user: "${MY_UID:-1000}:${MY_GID:-1000}"
-  hostname: ${SESSION_NAME:-ai-agent}
+  hostname: ${SESSION_NAME:-ai-agent-container}
   environment:
     - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
     - HOME=/home/ubuntu
