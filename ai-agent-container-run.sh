@@ -7,15 +7,17 @@
 # It handles authentication, session persistence, and Git worktree integration.
 # ==============================================================================
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-COMPOSE_FILE="$SCRIPT_DIR/docker-compose.yml"
-
-# Export UID/GID to ensure file permissions match the host user inside the container
-export MY_UID="$(id -u)"
-export MY_GID="$(id -g)"
-
 # --- HELPER FUNCTIONS ---
 
+# Returns the absolute path to the directory containing this script.
+# Uses BASH_SOURCE[0] so it works correctly even when the script is sourced or
+# called via a symlink from a different working directory.
+get_script_dir() {
+    echo "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+}
+
+# Validates that a name contains only safe characters for Docker container names
+# and Git branch names. Exits with an error if the value is non-empty and invalid.
 validate_name() {
     local value="$1" field="$2"
     if [ -n "$value" ] && [[ ! "$value" =~ ^[a-zA-Z0-9][a-zA-Z0-9_-]*$ ]]; then
@@ -46,16 +48,28 @@ EOF
     exit 0
 }
 
-# ------------------------
+# --- INITIALIZATION ---
 
-# Claude Authentication
+SCRIPT_DIR=$(get_script_dir)
+COMPOSE_FILE="$SCRIPT_DIR/docker-compose.yml"
+
+# MY_UID/MY_GID are read by docker-compose to run the container as the host user,
+# ensuring that files written to /app are owned by the correct user on the host.
+export MY_UID="$(id -u)"
+export MY_GID="$(id -g)"
+
+# --- AUTHENTICATION ---
+
+# Inform the user which Claude auth method will be used.
+# If no API key is set, the user must run 'claude login' inside the container.
 if [ -n "${ANTHROPIC_API_KEY}" ]; then
     echo "🔑 Claude auth: API key"
 else
-    echo "ℹ️  Claude auth: no API key — use AGENT_MODE=persistent and run 'claude login' on first start"
+    echo "ℹ️  Claude auth: No API key — Please run 'claude login' inside the container if needed."
 fi
 
-# Argument parsing
+# --- ARGUMENT PARSING ---
+
 INPUT=""
 RESET=false
 CLEANUP=""
@@ -89,10 +103,15 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
+# SESSION_NAME must be exported so docker-compose can use it for the container hostname.
 export SESSION_NAME
 validate_name "$SESSION_NAME" "session name"
 
-# Mode selection
+# --- SESSION MODE ---
+
+# Persistent mode keeps the agent's home directory alive between sessions via a
+# named Docker volume. Ephemeral mode (default) destroys the home on exit,
+# giving a clean slate every time.
 if [ "${AGENT_MODE}" == "persistent" ]; then
     SERVICE="agent"
     echo "💾 Session: Persistent (home survives between sessions)"
@@ -101,7 +120,10 @@ else
     echo "🧹 Session: Ephemeral (home is discarded on exit)"
 fi
 
-# Logic for --reset
+# --- ONE-SHOT ACTIONS (exit after completion) ---
+
+# --reset: deletes the persistent home volume so the next run starts fresh.
+# Refuses to proceed if any container is still using the volume.
 if [ "$RESET" = true ]; then
     if [ "$SERVICE" == "agent" ]; then
         PROJECT=$(docker compose -f "$COMPOSE_FILE" config --project-name 2>/dev/null)
@@ -122,7 +144,7 @@ if [ "$RESET" = true ]; then
     exit 0
 fi
 
-# Logic for --cleanup=<name>
+# --cleanup=<name>: removes the git worktree directory and its tracking branch.
 if [ -n "$CLEANUP" ]; then
     WORKTREE_DIR="$SCRIPT_DIR/worktrees/$CLEANUP"
     if [ -d "$WORKTREE_DIR" ]; then
@@ -137,7 +159,12 @@ if [ -n "$CLEANUP" ]; then
     exit 0
 fi
 
-# Target selection logic
+# --- TARGET SELECTION ---
+
+# Determines which directory to mount as /app inside the container:
+#   - no argument or ".": use the current working directory
+#   - existing path: use that directory
+#   - anything else: treat as a feature name and create/reuse a git worktree
 if [ -z "$INPUT" ] || [ "$INPUT" == "." ]; then
     export TARGET_PATH="$(pwd)"
     echo "📂 Target: Current Directory ($TARGET_PATH)"
@@ -145,15 +172,15 @@ elif [ -d "$INPUT" ]; then
     export TARGET_PATH="$(realpath "$INPUT")"
     echo "📂 Target: Existing Directory ($TARGET_PATH)"
 else
-    # Validate feature name
     validate_name "$INPUT" "feature name"
 
-    # Treat it as a Git worktree feature name
     if ! git -C "$(pwd)" rev-parse --git-dir > /dev/null 2>&1; then
         echo "❌ Error: not in a Git repository. Worktree mode requires a git repo."
         exit 1
     fi
 
+    # The worktree is created under ./worktrees/<name> with branch ai/<name>,
+    # keeping it separate from the main working tree.
     WORKTREE_DIR="./worktrees/$INPUT"
     if [ ! -d "$WORKTREE_DIR" ]; then
         echo "🌿 Creating Git Worktree: $INPUT"
@@ -163,13 +190,17 @@ else
     echo "🌳 Target: Git Worktree ($TARGET_PATH)"
 fi
 
-# Explicit guard
+# Safety guard: TARGET_PATH must always be set before reaching this point.
 if [ -z "$TARGET_PATH" ]; then
     echo "❌ Error: TARGET_PATH is not set."
     exit 1
 fi
 
-# Container Launch Logic
+# --- CONTAINER LAUNCH ---
+
+# Named sessions: if a container with this name is already running, open a new
+# shell inside it instead of starting a second instance.
+# Unnamed sessions: start a fresh container that is automatically removed on exit.
 if [ -n "${SESSION_NAME}" ]; then
     CONTAINER_NAME="ai-agent-container-${SESSION_NAME}"
     if docker inspect --format '{{.State.Running}}' "$CONTAINER_NAME" 2>/dev/null | grep -q true; then
