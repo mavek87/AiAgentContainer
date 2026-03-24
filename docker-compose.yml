@@ -6,8 +6,10 @@ x-agent-base: &agent-base
   hostname: ${SESSION_NAME:-ai-agent}
   environment:
     - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
-    - HOME=/home/ai-agent
+    - HOME=/home/ubuntu
     - SESSION_NAME=${SESSION_NAME:-}
+    # SSH agent forwarding: condivide le chiavi SSH dell'host col container
+    - SSH_AUTH_SOCK=/ssh-agent
   stdin_open: true
   tty: true
 
@@ -16,18 +18,20 @@ services:
   agent:
     <<: *agent-base
     volumes:
-      - ${TARGET_PATH:-.}:/app
-      - ai_home_volume:/home/ai-agent
-      - ./config/agent-rules.md:/home/ai-agent/.claude/CLAUDE.md:ro
-      - ./config/agent-rules.md:/home/ai-agent/.config/opencode/AGENTS.md:ro
+      - ${TARGET_PATH}:/app
+      - ai_home_volume:/home/ubuntu
+      - ./config/agent-rules.md:/home/ubuntu/.claude/CLAUDE.md:ro
+      - ./config/agent-rules.md:/home/ubuntu/.config/opencode/AGENTS.md:ro
+      - ${SSH_AUTH_SOCK:-/dev/null}:/ssh-agent:ro
 
   # Modalità effimera: la home viene distrutta alla chiusura del container
   agent-ephemeral:
     <<: *agent-base
     volumes:
-      - ${TARGET_PATH:-.}:/app
-      - ./config/agent-rules.md:/home/ai-agent/.claude/CLAUDE.md:ro
-      - ./config/agent-rules.md:/home/ai-agent/.config/opencode/AGENTS.md:ro
+      - ${TARGET_PATH}:/app
+      - ./config/agent-rules.md:/home/ubuntu/.claude/CLAUDE.md:ro
+      - ./config/agent-rules.md:/home/ubuntu/.config/opencode/AGENTS.md:ro
+      - ${SSH_AUTH_SOCK:-/dev/null}:/ssh-agent:ro
 
 volumes:
   ai_home_volume:

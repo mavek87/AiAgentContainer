@@ -1,0 +1,7 @@
+.git/
+.idea/
+*.iml
+worktrees/
+issues/
+.env
+*.env

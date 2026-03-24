@@ -1,11 +1,11 @@
 # AIAgentContainer (AIC)
 
-Container Docker isolato per sessioni di sviluppo con AI. L'agente lavora dentro `/app` (la tua cartella di progetto) senza toccare il resto del sistema host.
+Isolated Docker container for AI development sessions. The agent works inside `/app` (your project folder) without touching the rest of the host system.
 
-## Prerequisiti
+## Prerequisites
 
 ```bash
-# Costruisci l'immagine (una tantum, o dopo modifiche al Dockerfile)
+# Build the image (one-time, or after Dockerfile changes)
 docker compose -f /path/to/AIAgentContainer/docker-compose.yml build
 ```
 
@@ -112,4 +112,39 @@ SESSION_NAME=frontend AGENT_MODE=persistent /path/to/ai-agent-container-run.sh ~
 ```bash
 docker compose -f /path/to/AIAgentContainer/docker-compose.yml build
 AGENT_MODE=persistent /path/to/ai-agent-container-run.sh --reset
+```
+
+---
+
+## SSH e Git remoti
+
+Per abilitare `git pull/push` verso repository remoti (GitHub, GitLab, ecc.) il container usa **SSH agent forwarding**: condivide le chiavi SSH dell'host senza copiarle nel container.
+
+```bash
+# Verifica che ssh-agent sia attivo e abbia le chiavi caricate
+echo $SSH_AUTH_SOCK      # deve restituire un path (es. /run/user/1000/gcr/ssh)
+ssh-add -l               # lista le chiavi caricate
+
+# Se ssh-agent non è attivo o non ha chiavi:
+eval "$(ssh-agent -s)"
+ssh-add ~/.ssh/id_ed25519
+```
+
+Una volta attivo, avvia il container normalmente — `git pull/push` funzionerà automaticamente.
+
+---
+
+## Cleanup worktree
+
+Quando hai finito con una feature su worktree, rimuovila con il flag `--cleanup`:
+
+```bash
+# Rimuove worktrees/refactor-auth e il branch ai/refactor-auth
+/path/to/ai-agent-container-run.sh --cleanup=refactor-auth
+```
+
+Oppure manualmente:
+```bash
+git worktree remove worktrees/refactor-auth
+git branch -d ai/refactor-auth
 ```
