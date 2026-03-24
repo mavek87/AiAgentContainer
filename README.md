@@ -1,4 +1,4 @@
-# AIAgentContainer (AIC)
+# AI Agent Container (AIC)
 
 Isolated Docker container for AI development sessions. The agent works inside `/app` (your project folder) without touching the rest of the host system.
 
@@ -6,144 +6,146 @@ Isolated Docker container for AI development sessions. The agent works inside `/
 
 ```bash
 # Build the image (one-time, or after Dockerfile changes)
-docker compose -f /path/to/AIAgentContainer/docker-compose.yml build
+docker compose build
 ```
 
 ---
 
-## Utilizzo
+## Usage
 
 ```bash
-# Cartella corrente
+# Current directory
 /path/to/ai-agent-container-run.sh
 
-# Cartella specifica
-/path/to/ai-agent-container-run.sh ~/progetti/mia-app
+# Specific directory
+/path/to/ai-agent-container-run.sh ~/projects/my-app
 
-# Git worktree — crea branch ai/nuova-feature in ./worktrees/nuova-feature
-/path/to/ai-agent-container-run.sh nuova-feature
+# Git worktree — creates branch ai/new-feature in ./worktrees/new-feature
+/path/to/ai-agent-container-run.sh new-feature
 ```
 
-Chiudi la sessione con `exit`. Il container viene rimosso automaticamente.
+Close the session with `exit`. The container is removed automatically.
 
 ---
 
-## Opzioni e variabili d'ambiente
+## Options and environment variables
 
-| Parametro / Variabile | Valori | Default | Descrizione |
-|-----------|--------|---------|-------------|
-| `-n`, `--name <nome>` | qualsiasi stringa | — | Nome della sessione (ri-aggancio automatico se già attiva) |
-| `AGENT_MODE` | `ephemeral` \| `persistent` | `ephemeral` | Modalità sessione |
-| `ANTHROPIC_API_KEY` | `sk-ant-...` | — | API key Console (opzionale) |
+| Option / Variable | Values | Default | Description |
+|---|---|---|---|
+| `-n`, `--name <name>` | any string | — | Name the session; re-attaches if already running |
+| `--reset` | — | — | Delete the persistent home volume (requires `AGENT_MODE=persistent`) |
+| `--cleanup=<name>` | worktree name | — | Remove a git worktree and its branch |
+| `AGENT_MODE` | `ephemeral` \| `persistent` | `ephemeral` | Session mode |
+| `ANTHROPIC_API_KEY` | `sk-ant-...` | — | Console API key (optional) |
 
 ---
 
-## Modalità sessione
+## Session modes
 
-**Effimera (default)** — la home dell'agente viene distrutta alla chiusura. Ogni sessione riparte da zero.
+**Ephemeral (default)** — the agent's home directory is destroyed on exit. Every session starts from scratch.
 
 ```bash
-/path/to/ai-agent-container-run.sh ~/progetti/mia-app
+/path/to/ai-agent-container-run.sh ~/projects/my-app
 ```
 
-**Persistente** — la home sopravvive tra le sessioni. Claude ricorda conversazioni e contesto del progetto.
+**Persistent** — the home directory survives between sessions. Claude remembers project context and conversation history.
 
 ```bash
-AGENT_MODE=persistent /path/to/ai-agent-container-run.sh ~/progetti/mia-app
+AGENT_MODE=persistent /path/to/ai-agent-container-run.sh ~/projects/my-app
 ```
 
 ---
 
-## Autenticazione Claude
+## Claude authentication
 
-**Pro/Max subscription**: usa `AGENT_MODE=persistent` e fai `claude login` una volta sola al primo avvio. La sessione viene salvata nel volume `ai_home_volume` e rimane valida per tutte le sessioni successive.
+**Pro/Max subscription**: use `AGENT_MODE=persistent` and run `claude login` once on first start. The session is saved in the `ai_home_volume` Docker volume and stays valid across future sessions.
 
-**API key Console**: imposta `ANTHROPIC_API_KEY` sull'host prima di lanciare lo script. Funziona in entrambe le modalità.
+**Console API key**: set `ANTHROPIC_API_KEY` on the host before launching. Works with both modes.
 
-> L'OAuth di Claude Pro è browser-based e non trasferibile tra installazioni. Non esiste modo di condividere le credenziali dell'host con il container.
+> Claude Pro OAuth is browser-based and cannot be transferred between installations. There is no way to share host credentials with the container.
 
 ---
 
-## Sessioni con nome
+## Named sessions
 
-`--name` assegna un nome al container. Se una sessione con quel nome è già in esecuzione, lo script apre una nuova shell nella sessione esistente.
+`--name` assigns a name to the container. If a session with that name is already running, the script opens a new shell inside it instead of starting a second instance.
 
 ```bash
-# Terminale 1 — avvia
-AGENT_MODE=persistent /path/to/ai-agent-container-run.sh --name backend ~/progetti/backend
+# Terminal 1 — start
+AGENT_MODE=persistent /path/to/ai-agent-container-run.sh --name backend ~/projects/backend
 
-# Terminale 2 — ri-aggancio automatico
-AGENT_MODE=persistent /path/to/ai-agent-container-run.sh --name backend ~/progetti/backend
+# Terminal 2 — auto re-attach
+AGENT_MODE=persistent /path/to/ai-agent-container-run.sh --name backend ~/projects/backend
 # → 🔗 Session 'backend' is already running — opening new shell...
 ```
 
 ---
 
-## Casi d'uso pratici
+## Practical examples
 
-**Task one-shot (ephemeral):**
+**One-shot task (ephemeral):**
 ```bash
-cd ~/progetti/backend
+cd ~/projects/backend
 /path/to/ai-agent-container-run.sh
-# dentro il container: claude "aggiungi validazione all'endpoint /users"
+# inside the container: claude "add validation to the /users endpoint"
 ```
 
-**Feature isolata su worktree:**
+**Isolated feature on a worktree:**
 ```bash
-cd ~/progetti/backend
+cd ~/projects/backend
 /path/to/ai-agent-container-run.sh refactor-auth
-# l'AI lavora su worktrees/refactor-auth, main è intatto
-# quando finisci: git worktree remove worktrees/refactor-auth
+# the AI works on worktrees/refactor-auth, main is untouched
+# when done: /path/to/ai-agent-container-run.sh --cleanup=refactor-auth
 ```
 
-**Sessione multi-giorno con memoria:**
+**Multi-day session with memory:**
 ```bash
-AGENT_MODE=persistent /path/to/ai-agent-container-run.sh --name pagamenti ~/progetti/mia-app
-# exit — riprendi il giorno dopo con lo stesso comando
+AGENT_MODE=persistent /path/to/ai-agent-container-run.sh --name payments ~/projects/my-app
+# exit — resume the next day with the same command
 ```
 
-**Più sessioni parallele:**
+**Parallel sessions:**
 ```bash
-AGENT_MODE=persistent /path/to/ai-agent-container-run.sh --name backend  ~/progetti/backend   # terminale 1
-AGENT_MODE=persistent /path/to/ai-agent-container-run.sh --name frontend ~/progetti/frontend  # terminale 2
+AGENT_MODE=persistent /path/to/ai-agent-container-run.sh --name backend  ~/projects/backend   # terminal 1
+AGENT_MODE=persistent /path/to/ai-agent-container-run.sh --name frontend ~/projects/frontend  # terminal 2
 ```
 
-**Reset volume dopo rebuild:**
+**Reset volume after rebuild:**
 ```bash
-docker compose -f /path/to/AIAgentContainer/docker-compose.yml build
+docker compose build
 AGENT_MODE=persistent /path/to/ai-agent-container-run.sh --reset
 ```
 
 ---
 
-## SSH e Git remoti
+## SSH and remote Git
 
-Per abilitare `git pull/push` verso repository remoti (GitHub, GitLab, ecc.) il container usa **SSH agent forwarding**: condivide le chiavi SSH dell'host senza copiarle nel container.
+To enable `git pull/push` to remote repositories (GitHub, GitLab, etc.), the container uses **SSH agent forwarding**: it shares the host's SSH keys without copying them into the container.
 
 ```bash
-# Verifica che ssh-agent sia attivo e abbia le chiavi caricate
-echo $SSH_AUTH_SOCK      # deve restituire un path (es. /run/user/1000/gcr/ssh)
-ssh-add -l               # lista le chiavi caricate
+# Verify ssh-agent is running and has keys loaded
+echo $SSH_AUTH_SOCK   # should return a path (e.g. /run/user/1000/gcr/ssh)
+ssh-add -l            # list loaded keys
 
-# Se ssh-agent non è attivo o non ha chiavi:
+# If ssh-agent is not running or has no keys:
 eval "$(ssh-agent -s)"
 ssh-add ~/.ssh/id_ed25519
 ```
 
-Una volta attivo, avvia il container normalmente — `git pull/push` funzionerà automaticamente.
+Once active, launch the container normally — `git pull/push` will work automatically.
 
 ---
 
-## Cleanup worktree
+## Worktree cleanup
 
-Quando hai finito con una feature su worktree, rimuovila con il flag `--cleanup`:
+When you are done with a worktree feature, remove it with `--cleanup`:
 
 ```bash
-# Rimuove worktrees/refactor-auth e il branch ai/refactor-auth
+# Removes worktrees/refactor-auth and branch ai/refactor-auth
 /path/to/ai-agent-container-run.sh --cleanup=refactor-auth
 ```
 
-Oppure manualmente:
+Or manually:
 ```bash
 git worktree remove worktrees/refactor-auth
 git branch -d ai/refactor-auth
