@@ -8,8 +8,6 @@ x-agent-base: &agent-base
     - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
     - HOME=/home/ubuntu
     - SESSION_NAME=${SESSION_NAME:-}
-    # SSH agent forwarding: shares host SSH keys with the container
-    - SSH_AUTH_SOCK=/ssh-agent
     # Permission mode: 'false' (default) = autonomous, 'true' = ask before each action
     - AGENT_ASK_PERMISSIONS=${AGENT_ASK_PERMISSIONS:-false}
   stdin_open: true
@@ -24,7 +22,6 @@ services:
       - ai_home_volume:/home/ubuntu
       - ./config/agent-rules.md:/home/ubuntu/.claude/CLAUDE.md
       - ./config/agent-rules.md:/home/ubuntu/.config/opencode/AGENTS.md
-      - ${SSH_AUTH_SOCK:-/dev/null}:/ssh-agent:ro
 
   # Ephemeral mode: the home is destroyed when the container is closed
   agent-ephemeral:
@@ -33,7 +30,6 @@ services:
       - ${TARGET_PATH:-.}:/app
       - ./config/agent-rules.md:/home/ubuntu/.claude/CLAUDE.md
       - ./config/agent-rules.md:/home/ubuntu/.config/opencode/AGENTS.md
-      - ${SSH_AUTH_SOCK:-/dev/null}:/ssh-agent:ro
 
 volumes:
   ai_home_volume:

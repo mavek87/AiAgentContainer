@@ -37,6 +37,8 @@ Options:
   --ask-permissions      Enable interactive permission prompts (default: autonomous/no prompts).
   --reset                Remove the persistent volume (requires AGENT_MODE=persistent).
   --cleanup=<name>       Remove the specified git worktree and its branch.
+  --branch-push          Allow git push only to the current branch (mounts SSH keys).
+  -y, --yes              Skip confirmation prompts.
   -u, --update           Pull latest changes and rebuild the Docker image.
   -d, --uninstall        Remove the 'aic' command (add --purge to also remove image and volumes).
 
@@ -78,6 +80,8 @@ SESSION_NAME=""
 UPDATE=false
 UNINSTALL=false
 PURGE=false
+BRANCH_PUSH=false
+SKIP_CONFIRM=false
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -114,6 +118,14 @@ while [[ $# -gt 0 ]]; do
             ;;
         --purge)
             PURGE=true
+            shift
+            ;;
+        --branch-push)
+            BRANCH_PUSH=true
+            shift
+            ;;
+        -y|--yes)
+            SKIP_CONFIRM=true
             shift
             ;;
         -*)
@@ -259,6 +271,75 @@ if [ -z "$TARGET_PATH" ]; then
     exit 1
 fi
 
+# --- PUSH MODE ---
+
+BRANCH_PUSH_EXTRA_ARGS=()
+
+if [ "$BRANCH_PUSH" = true ]; then
+    # Must be a git repo
+    if ! git -C "$TARGET_PATH" rev-parse --git-dir > /dev/null 2>&1; then
+        echo "❌ Error: --branch-push requires a Git repository, but '$TARGET_PATH' is not one."
+        exit 1
+    fi
+
+    # Must not be in detached HEAD
+    CURRENT_BRANCH="$(git -C "$TARGET_PATH" branch --show-current)"
+    if [ -z "$CURRENT_BRANCH" ]; then
+        echo "❌ Error: --branch-push requires a branch, but HEAD is detached."
+        exit 1
+    fi
+
+    # Must not be main or master
+    if [ "$CURRENT_BRANCH" = "main" ] || [ "$CURRENT_BRANCH" = "master" ]; then
+        echo "❌ Error: --branch-push refuses to operate on '$CURRENT_BRANCH'. Create a branch first."
+        exit 1
+    fi
+
+    # Confirmation prompt
+    if [ "$SKIP_CONFIRM" = false ]; then
+        echo ""
+        echo "⚠️  Branch push mode: push limited to '$CURRENT_BRANCH' via git hook."
+        echo "   Note: SSH keys will be accessible inside the container."
+        read -r -p "   Continue? [y/N] " response
+        if [[ ! "$response" =~ ^[yY]$ ]]; then
+            echo "Aborted."
+            exit 0
+        fi
+    fi
+
+    echo "🔀 Push mode: branch-push (limited to '$CURRENT_BRANCH')"
+
+    # Generate pre-push hook in a temp directory
+    HOOK_DIR="$(mktemp -d)"
+    cat > "$HOOK_DIR/pre-push" << HOOKEOF
+#!/bin/bash
+while read local_ref local_sha remote_ref remote_sha; do
+    if [ "\$remote_ref" != "refs/heads/$CURRENT_BRANCH" ]; then
+        echo "BLOCKED: push allowed only to '$CURRENT_BRANCH'"
+        exit 1
+    fi
+done
+HOOKEOF
+    chmod +x "$HOOK_DIR/pre-push"
+
+    # Generate gitconfig that points to the hooks directory
+    GITCONFIG_FILE="$(mktemp)"
+    cat > "$GITCONFIG_FILE" << GCEOF
+[core]
+    hooksPath = /etc/git-hooks
+GCEOF
+
+    # Extra docker args: mount hook, gitconfig, and SSH socket (all read-only)
+    BRANCH_PUSH_EXTRA_ARGS=(
+        -v "$HOOK_DIR:/etc/git-hooks:ro"
+        -v "$GITCONFIG_FILE:/etc/gitconfig:ro"
+        -v "${SSH_AUTH_SOCK}:/ssh-agent:ro"
+        -e "SSH_AUTH_SOCK=/ssh-agent"
+    )
+else
+    echo "🔒 Push mode: no-push (default)"
+fi
+
 # --- CONTAINER LAUNCH ---
 
 # For ephemeral sessions, generate a short random ID used as both the container
@@ -277,5 +358,6 @@ if docker inspect --format '{{.State.Running}}' "$CONTAINER_NAME" 2>/dev/null | 
     docker exec -it "$CONTAINER_NAME" /bin/bash
 else
     echo "🏷️  Session: $SESSION_NAME"
-    docker compose -f "$COMPOSE_FILE" run --rm --name "$CONTAINER_NAME" "$SERVICE"
+    docker compose -f "$COMPOSE_FILE" run --rm --name "$CONTAINER_NAME" \
+        "${BRANCH_PUSH_EXTRA_ARGS[@]}" "$SERVICE"
 fi

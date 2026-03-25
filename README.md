@@ -60,6 +60,8 @@ Close the session with `exit`. The container is removed automatically.
 | `-n`, `--name <name>` | any string | — | Name the session; re-attaches if already running |
 | `--reset` | — | — | Delete the persistent home volume (requires `AGENT_MODE=persistent`) |
 | `--cleanup=<name>` | worktree name | — | Remove a git worktree and its branch |
+| `--branch-push` | — | — | Allow git push only to the current branch (mounts SSH keys) |
+| `-y`, `--yes` | — | — | Skip confirmation prompts |
 | `--update` | — | — | Pull latest changes from git and rebuild the Docker image |
 | `AGENT_MODE` | `ephemeral` \| `persistent` | `ephemeral` | Session mode |
 | `ANTHROPIC_API_KEY` | `sk-ant-...` | — | Console API key (optional) |
@@ -144,21 +146,30 @@ AGENT_MODE=persistent aic --reset
 
 ---
 
-## SSH and remote Git
+## Push modes
 
-To enable `git pull/push` to remote repositories (GitHub, GitLab, etc.), the container uses **SSH agent forwarding**: it shares the host's SSH keys without copying them into the container.
+By default, `git push` is **disabled** inside the container — no SSH keys are mounted. The agent can commit locally but cannot push to remotes.
+
+To allow the agent to push (limited to the current branch only), use `--branch-push`:
 
 ```bash
-# Verify ssh-agent is running and has keys loaded
-echo $SSH_AUTH_SOCK   # should return a path (e.g. /run/user/1000/gcr/ssh)
-ssh-add -l            # list loaded keys
+# Push limited to branch ai/feature-name via read-only git hook
+aic --branch-push feature-name
 
-# If ssh-agent is not running or has no keys:
-eval "$(ssh-agent -s)"
-ssh-add ~/.ssh/id_ed25519
+# Push limited to the current branch of an existing repo
+aic --branch-push ~/projects/my-app
+
+# Skip the confirmation prompt
+aic --branch-push -y feature-name
 ```
 
-Once active, launch the container normally — `git pull/push` will work automatically.
+This mounts the host's SSH agent and installs a read-only `pre-push` hook that blocks pushes to any branch other than the current one. A confirmation prompt warns that SSH keys will be accessible inside the container.
+
+**Requirements for `--branch-push`:**
+- The target must be a Git repository
+- HEAD must be on a branch (not detached)
+- The branch must not be `main` or `master`
+- `ssh-agent` must be running on the host with keys loaded
 
 ---
 

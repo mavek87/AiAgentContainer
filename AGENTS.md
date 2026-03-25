@@ -19,6 +19,8 @@ The project uses a customized Ubuntu 24.04 image and a coordinator script (`scri
 | `-n`, `--name <name>` | Names the container; re-attaches automatically if already running |
 | `--reset` | Deletes the persistent home volume (requires `AGENT_MODE=persistent`) |
 | `--cleanup=<name>` | Removes a git worktree and its tracking branch |
+| `--branch-push` | Allows git push only to the current branch (mounts SSH keys, requires confirmation) |
+| `-y`, `--yes` | Skips confirmation prompts |
 | `ANTHROPIC_API_KEY=<key>` | Authentication via Console API key (optional) |
 
 ## 🚀 Main Commands (on host)
@@ -54,7 +56,8 @@ aic --cleanup=feature-name
 
 - **Isolated Home**: `/home/ubuntu` is separate from the real host home.
 - **User Mapping**: the container runs with your real UID/GID — files created in `/app` are owned by you.
-- **SSH Forwarding**: the host SSH agent is shared with the container via socket mount, enabling `git pull/push` without copying keys.
+- **No-push (default)**: git push is disabled — no SSH keys are mounted. The agent can commit locally but cannot push.
+- **Branch-push (`--branch-push`)**: git push is allowed only to the current branch via a read-only git hook. SSH keys are accessible inside the container.
 - **Ephemeral mode**: everything outside `/app` disappears when the container exits.
 - **Persistent mode**: the `ai_home_volume` Docker volume survives between sessions.
 
