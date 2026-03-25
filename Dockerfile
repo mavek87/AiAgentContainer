@@ -11,10 +11,9 @@ ENV DEBIAN_FRONTEND=noninteractive
 # 1. System dependencies and User configuration
 # Combined to reduce layers while keeping related system-level tasks together.
 # --no-install-recommends avoids installing unnecessary packages, keeping the image slim.
-RUN apt-get update && apt-get install -y --no-install-recommends \
+RUN apt-get update && apt-get install -y \
     curl \
     git \
-    openssh-client \
     sudo \
     build-essential \
     unzip \
