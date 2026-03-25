@@ -37,6 +37,7 @@ Options:
   --reset                Remove the persistent volume (requires AGENT_MODE=persistent).
   --cleanup=<name>       Remove the specified git worktree and its branch.
   --update               Pull latest changes and rebuild the Docker image.
+  --uninstall            Remove the 'aic' command (add --purge to also remove image and volumes).
 
 Target (optional):
   (empty) or .         Use the current directory (default).
@@ -81,6 +82,8 @@ RESET=false
 CLEANUP=""
 SESSION_NAME=""
 UPDATE=false
+UNINSTALL=false
+PURGE=false
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -105,6 +108,14 @@ while [[ $# -gt 0 ]]; do
             ;;
         --update)
             UPDATE=true
+            shift
+            ;;
+        --uninstall)
+            UNINSTALL=true
+            shift
+            ;;
+        --purge)
+            PURGE=true
             shift
             ;;
         -*)
@@ -152,6 +163,27 @@ if [ "$UPDATE" = true ]; then
     }
     docker compose -f "$COMPOSE_FILE" build
     echo "✅ Update complete."
+    exit 0
+fi
+
+# --purge without --uninstall is not meaningful.
+if [ "$PURGE" = true ] && [ "$UNINSTALL" = false ]; then
+    echo "❌ --purge requires --uninstall. Did you mean: aic --uninstall --purge?"
+    exit 1
+fi
+
+# --uninstall: delegates to uninstall.sh in the same directory.
+if [ "$UNINSTALL" = true ]; then
+    UNINSTALL_SCRIPT="$SCRIPT_DIR/uninstall.sh"
+    if [ ! -f "$UNINSTALL_SCRIPT" ]; then
+        echo "❌ Uninstall script not found: $UNINSTALL_SCRIPT"
+        exit 1
+    fi
+    if [ "$PURGE" = true ]; then
+        bash "$UNINSTALL_SCRIPT" --purge
+    else
+        bash "$UNINSTALL_SCRIPT"
+    fi
     exit 0
 fi
 

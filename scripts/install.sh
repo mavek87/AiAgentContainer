@@ -93,6 +93,7 @@ ok "Docker image built"
 step "Installing 'aic' command..."
 mkdir -p "$BIN_DIR"
 chmod +x "$PROJECT_DIR/scripts/ai-agent-container-run.sh"
+chmod +x "$PROJECT_DIR/scripts/uninstall.sh"
 ln -sf "$PROJECT_DIR/scripts/ai-agent-container-run.sh" "$BIN_LINK"
 ok "Installed: $BIN_LINK → $PROJECT_DIR/scripts/ai-agent-container-run.sh"
 

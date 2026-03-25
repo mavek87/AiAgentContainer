@@ -30,8 +30,8 @@ aic --update   # pull latest changes and rebuild the image
 **Uninstall:**
 
 ```bash
-~/.local/share/aic/scripts/uninstall.sh            # remove 'aic' command
-~/.local/share/aic/scripts/uninstall.sh --purge    # also remove Docker image and volumes
+aic --uninstall           # remove 'aic' command and repo clone
+aic --uninstall --purge   # also remove Docker image and volumes
 ```
 
 ---
