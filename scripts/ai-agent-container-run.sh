@@ -271,6 +271,27 @@ if [ -z "$TARGET_PATH" ]; then
     exit 1
 fi
 
+# --- WORKTREE SUPPORT ---
+
+# Git worktrees use a .git *file* (not directory) containing an absolute path
+# back to the main repo's .git/worktrees/<name> directory. When the worktree is
+# bind-mounted as /app inside the container, that absolute path doesn't exist.
+# Fix: detect worktrees and mount the main .git dir at its host path.
+WORKTREE_EXTRA_ARGS=()
+
+GIT_COMMON_DIR="$(git -C "$TARGET_PATH" rev-parse --git-common-dir 2>/dev/null)"
+GIT_DIR="$(git -C "$TARGET_PATH" rev-parse --git-dir 2>/dev/null)"
+
+if [ -n "$GIT_DIR" ] && [ -n "$GIT_COMMON_DIR" ]; then
+    GIT_DIR_ABS="$(cd "$TARGET_PATH" && realpath "$GIT_DIR")"
+    GIT_COMMON_DIR_ABS="$(cd "$TARGET_PATH" && realpath "$GIT_COMMON_DIR")"
+    if [ "$GIT_DIR_ABS" != "$GIT_COMMON_DIR_ABS" ]; then
+        # TARGET_PATH is a worktree — mount the main .git dir at its host path
+        echo "🔗 Worktree detected: mounting $GIT_COMMON_DIR_ABS into container"
+        WORKTREE_EXTRA_ARGS=(-v "$GIT_COMMON_DIR_ABS:$GIT_COMMON_DIR_ABS")
+    fi
+fi
+
 # --- PUSH MODE ---
 
 BRANCH_PUSH_EXTRA_ARGS=()
@@ -359,5 +380,5 @@ if docker inspect --format '{{.State.Running}}' "$CONTAINER_NAME" 2>/dev/null | 
 else
     echo "🏷️  Session: $SESSION_NAME"
     docker compose -f "$COMPOSE_FILE" run --rm --name "$CONTAINER_NAME" \
-        "${BRANCH_PUSH_EXTRA_ARGS[@]}" "$SERVICE"
+        "${WORKTREE_EXTRA_ARGS[@]}" "${BRANCH_PUSH_EXTRA_ARGS[@]}" "$SERVICE"
 fi
