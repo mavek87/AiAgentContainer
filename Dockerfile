@@ -1,45 +1,66 @@
 # Base: Ubuntu 24.04 LTS (Noble Numbat)
 FROM ubuntu:24.04
 
-# Avoid interaction during package installation
+# Use bash with pipefail to ensure any command failure in a pipeline
+# (like curl | bash) exits the build immediately with an error.
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
+
+# Prevent interactive prompts during package installation
 ENV DEBIAN_FRONTEND=noninteractive
 
-# 1. Install essential system dependencies and OpenJDK 25 Headless
-RUN apt-get update && apt-get install -y \
+# 1. System dependencies and User configuration
+# Combined to reduce layers while keeping related system-level tasks together.
+# --no-install-recommends avoids installing unnecessary packages, keeping the image slim.
+RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     git \
     sudo \
     build-essential \
     unzip \
     ca-certificates \
+    vim \
     openjdk-25-jdk-headless \
-    && rm -rf /var/lib/apt/lists/*
+    && rm -rf /var/lib/apt/lists/* \
+    && echo "ubuntu ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/nopasswd \
+    && chmod 0440 /etc/sudoers.d/nopasswd
 
-# 2. Grant passwordless sudo to the 'ubuntu' user (UID 1000, pre-existing in base image)
-# The container runs with the host UID/GID — on most Linux desktops this is 1000 = ubuntu.
-RUN echo "ubuntu ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/nopasswd && \
-    chmod 0440 /etc/sudoers.d/nopasswd
-
-# 3. Switch to ubuntu user for tool installation
+# 2. Switch to 'ubuntu' user (default UID 1000 in Noble) for tool installation
 USER ubuntu
 WORKDIR /home/ubuntu
 
-# 4. Install development tools via their official scripts (always latest):
-RUN curl -fsSL https://claude.ai/install.sh | bash && \
-    curl -fsSL https://opencode.ai/install | bash && \
-    curl -LsSf https://astral.sh/uv/install.sh | sh && \
-    curl -fsSL https://bun.sh/install | bash && \
-    mkdir -p /home/ubuntu/.claude /home/ubuntu/.config/opencode
+# 3. Development tools installation
+# Grouped in one RUN command to minimize layer count.
+# Uses official installers for Claude, OpenCode, Astral (uv), and Bun.
+# After installation, the real 'claude' binary is renamed to 'claude-real' and
+# replaced with a wrapper that injects --dangerously-skip-permissions unless
+# AGENT_ASK_PERMISSIONS=true is set at container start.
+RUN mkdir -p /home/ubuntu/.claude /home/ubuntu/.config/opencode \
+    && curl -fsSL https://claude.ai/install.sh | bash \
+    && curl -fsSL https://opencode.ai/install | bash \
+    && curl -LsSf https://astral.sh/uv/install.sh | sh \
+    && curl -fsSL https://bun.sh/install | bash \
+    && mv /home/ubuntu/.local/bin/claude /home/ubuntu/.local/bin/claude-real \
+    && printf '#!/bin/bash\nif [ "${AGENT_ASK_PERMISSIONS:-false}" != "true" ]; then\n  exec claude-real --dangerously-skip-permissions "$@"\nelse\n  exec claude-real "$@"\nfi\n' \
+       > /home/ubuntu/.local/bin/claude \
+    && chmod +x /home/ubuntu/.local/bin/claude
 
-# 5. Environment variables (PATH and JAVA_HOME)
-# JAVA_HOME is detected dynamically via symlink to support any architecture (amd64, arm64, ...)
+# 4. Java Environment Setup + container entrypoint
+# Dynamically locate JAVA_HOME to support multiple architectures (amd64/arm64).
+# The entrypoint script configures tools based on AGENT_ASK_PERMISSIONS at runtime.
 USER root
 RUN ln -sf "$(dirname "$(dirname "$(readlink -f "$(which java)")")")" /usr/lib/jvm/active-java
+COPY scripts/entrypoint.sh /usr/local/bin/entrypoint.sh
+RUN chmod +x /usr/local/bin/entrypoint.sh
 USER ubuntu
+
+# 5. Environment variables
+# Update PATH to include local binaries and cargo/bun paths
 ENV PATH="/home/ubuntu/.local/bin:/home/ubuntu/.cargo/bin:/home/ubuntu/.bun/bin:$PATH"
 ENV JAVA_HOME="/usr/lib/jvm/active-java"
 
-# 6. Working directory
+# 6. Final workspace setup
 WORKDIR /app
 
+# Entrypoint configures tools (permissions mode) then hands off to CMD.
+ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
 CMD ["/bin/bash"]

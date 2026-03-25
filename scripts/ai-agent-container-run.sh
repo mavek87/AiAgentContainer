@@ -31,10 +31,11 @@ show_help() {
 Usage: $(basename "$0") [OPTIONS] [TARGET]
 
 Options:
-  -h, --help           Show this help message.
-  -n, --name <name>    Assign a name to the session (re-attaches if already running).
-  --reset              Remove the persistent volume (requires AGENT_MODE=persistent).
-  --cleanup=<name>     Remove the specified git worktree and its branch.
+  -h, --help             Show this help message.
+  -n, --name <name>      Assign a name to the session (re-attaches if already running).
+  --ask-permissions      Enable interactive permission prompts (default: autonomous/no prompts).
+  --reset                Remove the persistent volume (requires AGENT_MODE=persistent).
+  --cleanup=<name>       Remove the specified git worktree and its branch.
 
 Target (optional):
   (empty) or .         Use the current directory (default).
@@ -44,6 +45,7 @@ Target (optional):
 Environment variables:
   ANTHROPIC_API_KEY    API key for Claude authentication.
   AGENT_MODE           Set to 'persistent' to keep the home directory between sessions.
+  AGENT_ASK_PERMISSIONS  Set to 'true' to enable permission prompts (same as --ask-permissions).
 EOF
     exit 0
 }
@@ -87,6 +89,10 @@ while [[ $# -gt 0 ]]; do
             SESSION_NAME="$2"
             shift 2
             ;;
+        --ask-permissions)
+            export AGENT_ASK_PERMISSIONS=true
+            shift
+            ;;
         --reset)
             RESET=true
             shift
@@ -121,6 +127,12 @@ if [ "${AGENT_MODE}" == "persistent" ]; then
 else
     SERVICE="agent-ephemeral"
     echo "🧹 Session: Ephemeral (home is discarded on exit)"
+fi
+
+if [ "${AGENT_ASK_PERMISSIONS:-false}" == "true" ]; then
+    echo "🔐 Permissions: Interactive (agent will ask before each action)"
+else
+    echo "🤖 Permissions: Autonomous (agent runs without permission prompts)"
 fi
 
 # --- ONE-SHOT ACTIONS (exit after completion) ---

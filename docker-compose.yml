@@ -10,6 +10,8 @@ x-agent-base: &agent-base
     - SESSION_NAME=${SESSION_NAME:-}
     # SSH agent forwarding: shares host SSH keys with the container
     - SSH_AUTH_SOCK=/ssh-agent
+    # Permission mode: 'false' (default) = autonomous, 'true' = ask before each action
+    - AGENT_ASK_PERMISSIONS=${AGENT_ASK_PERMISSIONS:-false}
   stdin_open: true
   tty: true
 
@@ -18,19 +20,19 @@ services:
   agent:
     <<: *agent-base
     volumes:
-      - ${TARGET_PATH}:/app
+      - ${TARGET_PATH:-.}:/app
       - ai_home_volume:/home/ubuntu
-      - ./config/agent-rules.md:/home/ubuntu/.claude/CLAUDE.md:ro
-      - ./config/agent-rules.md:/home/ubuntu/.config/opencode/AGENTS.md:ro
+      - ./config/agent-rules.md:/home/ubuntu/.claude/CLAUDE.md
+      - ./config/agent-rules.md:/home/ubuntu/.config/opencode/AGENTS.md
       - ${SSH_AUTH_SOCK:-/dev/null}:/ssh-agent:ro
 
   # Ephemeral mode: the home is destroyed when the container is closed
   agent-ephemeral:
     <<: *agent-base
     volumes:
-      - ${TARGET_PATH}:/app
-      - ./config/agent-rules.md:/home/ubuntu/.claude/CLAUDE.md:ro
-      - ./config/agent-rules.md:/home/ubuntu/.config/opencode/AGENTS.md:ro
+      - ${TARGET_PATH:-.}:/app
+      - ./config/agent-rules.md:/home/ubuntu/.claude/CLAUDE.md
+      - ./config/agent-rules.md:/home/ubuntu/.config/opencode/AGENTS.md
       - ${SSH_AUTH_SOCK:-/dev/null}:/ssh-agent:ro
 
 volumes:
