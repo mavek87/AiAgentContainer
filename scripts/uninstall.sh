@@ -36,6 +36,18 @@ echo "║      AI Agent Container — Uninstaller    ║"
 echo "╚══════════════════════════════════════════╝"
 echo -e "${RESET}"
 
+# --- REMOVE REMOTE CLONE (if present, ask first) ---
+REMOVE_CLONE=false
+if [ -d "$REMOTE_INSTALL_DIR/.git" ]; then
+    echo "Remote installation found at: $REMOTE_INSTALL_DIR"
+    read -r -p "Remove it? [y/N] " confirm
+    if [[ "$confirm" =~ ^[Yy]$ ]]; then
+        REMOVE_CLONE=true
+    else
+        warn "Skipped removal of $REMOTE_INSTALL_DIR"
+    fi
+fi
+
 # --- REMOVE 'aic' SYMLINK ---
 if [ -L "$BIN_LINK" ]; then
     rm "$BIN_LINK"
@@ -44,17 +56,10 @@ else
     warn "'aic' is not installed at $BIN_LINK — skipping."
 fi
 
-# --- REMOVE REMOTE CLONE (if present) ---
-if [ -d "$REMOTE_INSTALL_DIR/.git" ]; then
-    echo ""
-    echo "Remote installation found at: $REMOTE_INSTALL_DIR"
-    read -r -p "Remove it? [y/N] " confirm
-    if [[ "$confirm" =~ ^[Yy]$ ]]; then
-        rm -rf "$REMOTE_INSTALL_DIR"
-        ok "Removed: $REMOTE_INSTALL_DIR"
-    else
-        warn "Skipped removal of $REMOTE_INSTALL_DIR"
-    fi
+# --- REMOVE REMOTE CLONE ---
+if [ "$REMOVE_CLONE" = true ]; then
+    rm -rf "$REMOTE_INSTALL_DIR"
+    ok "Removed: $REMOTE_INSTALL_DIR"
 fi
 
 # --- PURGE DOCKER RESOURCES ---
@@ -80,7 +85,7 @@ else
     echo ""
     echo "The Docker image and persistent volumes are NOT removed."
     echo "To remove them as well, run:"
-    echo "  $(basename "$0") --purge"
+    echo "  aic --uninstall --purge"
 fi
 
 echo ""
