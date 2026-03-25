@@ -23,7 +23,8 @@ RUN apt-get update && apt-get install -y \
     openjdk-25-jdk-headless \
     && rm -rf /var/lib/apt/lists/* \
     && echo "ubuntu ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/nopasswd \
-    && chmod 0440 /etc/sudoers.d/nopasswd
+    && chmod 0440 /etc/sudoers.d/nopasswd \
+    && echo "    StrictHostKeyChecking accept-new" >> /etc/ssh/ssh_config
 
 # 2. Switch to 'ubuntu' user (default UID 1000 in Noble) for tool installation
 USER ubuntu
