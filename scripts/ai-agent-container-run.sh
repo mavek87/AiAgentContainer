@@ -36,6 +36,7 @@ Options:
   --ask-permissions      Enable interactive permission prompts (default: autonomous/no prompts).
   --reset                Remove the persistent volume (requires AGENT_MODE=persistent).
   --cleanup=<name>       Remove the specified git worktree and its branch.
+  --update               Pull latest changes and rebuild the Docker image.
 
 Target (optional):
   (empty) or .         Use the current directory (default).
@@ -79,6 +80,7 @@ INPUT=""
 RESET=false
 CLEANUP=""
 SESSION_NAME=""
+UPDATE=false
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -99,6 +101,10 @@ while [[ $# -gt 0 ]]; do
             ;;
         --cleanup=*)
             CLEANUP="${1#--cleanup=}"
+            shift
+            ;;
+        --update)
+            UPDATE=true
             shift
             ;;
         -*)
@@ -136,6 +142,18 @@ else
 fi
 
 # --- ONE-SHOT ACTIONS (exit after completion) ---
+
+# --update: pulls latest changes from git and rebuilds the Docker image.
+if [ "$UPDATE" = true ]; then
+    echo "🔄 Updating AI Agent Container..."
+    git -C "$PROJECT_DIR" pull --ff-only || {
+        echo "❌ git pull failed. Resolve any conflicts manually in $PROJECT_DIR."
+        exit 1
+    }
+    docker compose -f "$COMPOSE_FILE" build
+    echo "✅ Update complete."
+    exit 0
+fi
 
 # --reset: deletes the persistent home volume so the next run starts fresh.
 # Refuses to proceed if any container is still using the volume.

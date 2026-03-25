@@ -4,18 +4,34 @@ Isolated Docker container for AI development sessions. The agent works inside `/
 
 ## Installation
 
+**One-liner (recommended):**
+
 ```bash
-cd /path/to/AiAgentContainer
-./scripts/install.sh   # creates the 'aic' symlink in ~/.local/bin
-docker compose build   # build the image (one-time, or after Dockerfile changes)
+curl -fsSL https://raw.githubusercontent.com/mavek87/AiAgentContainer/main/scripts/install.sh | bash
 ```
 
-After installation, use `aic` from any directory instead of the full script path.
+This clones the repo to `~/.local/share/aic`, builds the Docker image, and installs the `aic` command.
 
-To uninstall:
+**From a local clone:**
 
 ```bash
-./scripts/uninstall.sh   # removes the 'aic' symlink (image and volumes are untouched)
+cd /path/to/AiAgentContainer
+./scripts/install.sh
+```
+
+---
+
+**Update:**
+
+```bash
+aic --update   # pull latest changes and rebuild the image
+```
+
+**Uninstall:**
+
+```bash
+~/.local/share/aic/scripts/uninstall.sh            # remove 'aic' command
+~/.local/share/aic/scripts/uninstall.sh --purge    # also remove Docker image and volumes
 ```
 
 ---
@@ -44,6 +60,7 @@ Close the session with `exit`. The container is removed automatically.
 | `-n`, `--name <name>` | any string | — | Name the session; re-attaches if already running |
 | `--reset` | — | — | Delete the persistent home volume (requires `AGENT_MODE=persistent`) |
 | `--cleanup=<name>` | worktree name | — | Remove a git worktree and its branch |
+| `--update` | — | — | Pull latest changes from git and rebuild the Docker image |
 | `AGENT_MODE` | `ephemeral` \| `persistent` | `ephemeral` | Session mode |
 | `ANTHROPIC_API_KEY` | `sk-ant-...` | — | Console API key (optional) |
 
