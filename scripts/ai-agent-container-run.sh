@@ -32,12 +32,13 @@ Usage: $(basename "$0") [OPTIONS] [TARGET]
 
 Options:
   -h, --help             Show this help message.
+  -v, --version          Show the current version.
   -n, --name <name>      Assign a name to the session (re-attaches if already running).
   --ask-permissions      Enable interactive permission prompts (default: autonomous/no prompts).
   --reset                Remove the persistent volume (requires AGENT_MODE=persistent).
   --cleanup=<name>       Remove the specified git worktree and its branch.
-  --update               Pull latest changes and rebuild the Docker image.
-  --uninstall            Remove the 'aic' command (add --purge to also remove image and volumes).
+  -u, --update           Pull latest changes and rebuild the Docker image.
+  -d, --uninstall        Remove the 'aic' command (add --purge to also remove image and volumes).
 
 Target (optional):
   (empty) or .         Use the current directory (default).
@@ -48,6 +49,8 @@ Environment variables:
   ANTHROPIC_API_KEY    API key for Claude authentication.
   AGENT_MODE           Set to 'persistent' to keep the home directory between sessions.
   AGENT_ASK_PERMISSIONS  Set to 'true' to enable permission prompts (same as --ask-permissions).
+
+Version: $VERSION
 EOF
     exit 0
 }
@@ -59,6 +62,7 @@ SCRIPT_DIR=$(get_script_dir)
 # docker-compose.yml and worktrees/ live there, not inside scripts/.
 PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
 COMPOSE_FILE="$PROJECT_DIR/docker-compose.yml"
+VERSION="$(cat "$PROJECT_DIR/VERSION" 2>/dev/null | tr -d '[:space:]' || echo "unknown")"
 
 # MY_UID/MY_GID are read by docker-compose to run the container as the host user,
 # ensuring that files written to /app are owned by the correct user on the host.
@@ -90,6 +94,10 @@ while [[ $# -gt 0 ]]; do
         -h|--help)
             show_help
             ;;
+        -v|--version)
+            echo "aic version $VERSION"
+            exit 0
+            ;;
         -n|--name)
             SESSION_NAME="$2"
             shift 2
@@ -106,11 +114,11 @@ while [[ $# -gt 0 ]]; do
             CLEANUP="${1#--cleanup=}"
             shift
             ;;
-        --update)
+        -u|--update)
             UPDATE=true
             shift
             ;;
-        --uninstall)
+        -d|--uninstall)
             UNINSTALL=true
             shift
             ;;
