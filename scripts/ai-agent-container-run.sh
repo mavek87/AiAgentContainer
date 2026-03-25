@@ -69,16 +69,6 @@ VERSION="$(cat "$PROJECT_DIR/VERSION" 2>/dev/null | tr -d '[:space:]' || echo "u
 export MY_UID="$(id -u)"
 export MY_GID="$(id -g)"
 
-# --- AUTHENTICATION ---
-
-# Inform the user which Claude auth method will be used.
-# If no API key is set, the user must run 'claude login' inside the container.
-if [ -n "${ANTHROPIC_API_KEY}" ]; then
-    echo "🔑 Claude auth: API key"
-else
-    echo "ℹ️  Claude auth: No API key — Please run 'claude login' inside the container if needed."
-fi
-
 # --- ARGUMENT PARSING ---
 
 INPUT=""
