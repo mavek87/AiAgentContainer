@@ -31,29 +31,32 @@ WORKDIR /home/ubuntu
 # 3. Development tools installation
 # Grouped in one RUN command to minimize layer count.
 # Uses official installers for Claude, OpenCode, Astral (uv), and Bun.
-# After installation, the real 'claude' binary is renamed to 'claude-real' and
-# replaced with a wrapper that injects --dangerously-skip-permissions unless
-# AGENT_ASK_PERMISSIONS=true is set at container start.
 RUN mkdir -p /home/ubuntu/.claude /home/ubuntu/.config/opencode \
     && curl -fsSL https://claude.ai/install.sh | bash \
     && curl -fsSL https://opencode.ai/install | bash \
     && curl -LsSf https://astral.sh/uv/install.sh | sh \
     && curl -fsSL https://bun.sh/install | bash \
-    && mv /home/ubuntu/.local/bin/claude /home/ubuntu/.local/bin/claude-real \
-    && printf '#!/bin/bash\nif [ "${AGENT_ASK_PERMISSIONS:-false}" != "true" ]; then\n  exec claude-real --dangerously-skip-permissions "$@"\nelse\n  exec claude-real "$@"\nfi\n' \
-       > /home/ubuntu/.local/bin/claude \
-    && chmod +x /home/ubuntu/.local/bin/claude
+    && mv /home/ubuntu/.local/bin/claude /home/ubuntu/.local/bin/claude-real
 
-# 4. Java Environment Setup + container entrypoint
+# 4. Config files: claude wrapper, statusline script, claude settings
+# The real 'claude' binary is replaced with a wrapper that injects
+# --dangerously-skip-permissions unless AGENT_ASK_PERMISSIONS=true is set.
+USER root
+COPY --chown=ubuntu:ubuntu config/claude-wrapper.sh /home/ubuntu/.local/bin/claude
+COPY --chown=ubuntu:ubuntu config/claude-settings.json /home/ubuntu/.claude/settings.json
+COPY --chown=ubuntu:ubuntu config/statusline-command.sh /home/ubuntu/.claude/statusline-command.sh
+COPY config/opencode-settings.json /etc/aic/opencode-settings.json
+RUN chmod +x /home/ubuntu/.local/bin/claude /home/ubuntu/.claude/statusline-command.sh
+
+# 5. Java Environment Setup + container entrypoint
 # Dynamically locate JAVA_HOME to support multiple architectures (amd64/arm64).
 # The entrypoint script configures tools based on AGENT_ASK_PERMISSIONS at runtime.
-USER root
 RUN ln -sf "$(dirname "$(dirname "$(readlink -f "$(which java)")")")" /usr/lib/jvm/active-java
 COPY scripts/entrypoint.sh /usr/local/bin/entrypoint.sh
 RUN chmod +x /usr/local/bin/entrypoint.sh
 USER ubuntu
 
-# 5. Environment variables
+# 6. Environment variables
 # Update PATH to include local binaries and cargo/bun paths
 ENV PATH="/home/ubuntu/.local/bin:/home/ubuntu/.cargo/bin:/home/ubuntu/.bun/bin:$PATH"
 ENV JAVA_HOME="/usr/lib/jvm/active-java"

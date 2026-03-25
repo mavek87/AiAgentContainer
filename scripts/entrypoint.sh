@@ -9,20 +9,11 @@
 # ==============================================================================
 
 if [ "${AGENT_ASK_PERMISSIONS:-false}" != "true" ]; then
-    # OpenCode: write a config that grants permission for all operations.
-    # This file is written fresh on every container start so it always reflects
-    # the current value of AGENT_ASK_PERMISSIONS.
+    # OpenCode: copy the permissive config so all operations are auto-approved.
+    # Written fresh on every start so it always reflects AGENT_ASK_PERMISSIONS.
+    # Claude Code is handled via the 'claude' wrapper script in PATH.
     mkdir -p "${HOME}/.config/opencode"
-    cat > "${HOME}/.config/opencode/opencode.json" << 'EOF'
-{
-  "$schema": "https://opencode.ai/config.json",
-  "permission": {
-    "*": { "*": "allow" }
-  }
-}
-EOF
-    # Claude Code is handled via the 'claude' wrapper script in PATH,
-    # which passes --dangerously-skip-permissions when this variable is unset.
+    cp /etc/aic/opencode-settings.json "${HOME}/.config/opencode/opencode.json"
 fi
 
 exec "$@"
