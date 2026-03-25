@@ -14,6 +14,7 @@ ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     git \
+    openssh-client \
     sudo \
     build-essential \
     unzip \
